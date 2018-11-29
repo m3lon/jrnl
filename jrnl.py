@@ -10,7 +10,7 @@ config = {
     'time_format':'%Y-%m-%d %H:%M',
 }
 
-def read_file(num, filename=None):
+def read_file(filename=None):
     filename = filename if filename else config['journal_file']
     journal = []
     with open(filename, 'r') as f:
@@ -19,11 +19,14 @@ def read_file(num, filename=None):
             l = re.split(' ', line, 2)
             time =  l[0] + ' ' + l[1]
             title,content = parse_entry(l[2])
-            journal.append((time, title.strip(), content.strip()))
-        journal = sorted(journal, key= lambda t:t[0])
-        for s in journal[len(journal)-num:]:
-            entry_format = "{0} {1}:{2}".format(s[0],s[1],s[2])
-            print(entry_format)
+            journal.append({'time':time, 'title':title, 'content':content})
+    journal = sorted(journal, key= lambda t:t['time'])
+    return journal
+
+def print_file(journal,num=5):
+    for s in journal[len(journal)-num:]:
+        entry_format = "{time} {title}:{content}".format_map(s)
+        print(entry_format)
 
 def write_file(string,date=None,filename=None):
     title,content = parse_entry(string)
@@ -54,6 +57,19 @@ def parse_time(date=None):
      time = dateparser.parse(date) if date else datetime.now()
      time = time.strftime(config['time_format'])
      return time
+    
+def parse_tag(journal, tags = []):
+    journal_tags = []
+    for entry in journal:
+        for tag in tags:
+            fulltext = entry['title']+':'+entry['content']
+            if re.search(tag, fulltext):
+                if entry in journal_tags:
+                    continue
+                journal_tags.append(entry)
+    return journal_tags 
+                            
+            
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -61,9 +77,12 @@ if __name__ == "__main__":
     composing.add_argument('-date', dest='date', help='Date, e.g. "yesterday at 5pm"')
     reading = parser.add_argument_group('Reading', 'Specifying either of these parameters will display posts of your journal')
     reading.add_argument('-n', dest='limit', metavar="N", help='Shows the last n entries matching the filter', nargs="?", type=int, const=0)
+    reading.add_argument('--tags', dest='tags', help='Show the entrys with specific @tags', nargs='*', const=None)
     args = parser.parse_args()
+    # print(args)
+    # exit()
 
-    if not args.limit:
+    if not args.limit and not args.tags:
         # write mode
         journal = []
         print("[Compose Entry; press Ctrl+D to finish writing]")
@@ -76,7 +95,15 @@ if __name__ == "__main__":
             exit()
     else:
         # read mode
-        read_file(args.limit)
+        journal = read_file()
+        if args.tags :
+            journal = parse_tag(journal, args.tags)
+
+        if args.limit:
+            print_file(journal, args.limit)
+        else:
+            num = len(journal)
+            print_file(journal, num)
 
 
 
