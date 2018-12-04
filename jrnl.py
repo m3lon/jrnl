@@ -2,6 +2,7 @@
 from datetime import datetime
 import argparse
 import dateparser
+from itertools import chain
 import re
 import sys
 
@@ -23,10 +24,16 @@ def read_file(filename=None):
     journal = sorted(journal, key= lambda t:t['time'])
     return journal
 
-def print_file(journal,num=5):
+def print_file(journal, num=5):
     for s in journal[len(journal)-num:]:
         entry_format = "{time} {title}:{content}".format_map(s)
+        if '@' in  entry_format:
+            entry_format =  re.sub('(@\w*)', "\033[32;40m"+"\\1"+"\033[0m", entry_format)
         print(entry_format)
+
+def add_color(string):
+    return "\033[32;40m"+string+"\033[0m"
+
 
 def write_file(string,date=None,filename=None):
     title,content = parse_entry(string)
@@ -67,9 +74,7 @@ def parse_tag(journal, tags = []):
                 if entry in journal_tags:
                     continue
                 journal_tags.append(entry)
-    return journal_tags 
-                            
-            
+    return journal_tags        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -96,14 +101,12 @@ if __name__ == "__main__":
     else:
         # read mode
         journal = read_file()
+        
         if args.tags :
             journal = parse_tag(journal, args.tags)
-
-        if args.limit:
-            print_file(journal, args.limit)
-        else:
-            num = len(journal)
-            print_file(journal, num)
+        
+        num = args.limit if args.limit < len(journal) else len(journal)
+        print_file(journal, num)
 
 
 
